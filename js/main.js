@@ -12,6 +12,7 @@ var Main = {
 		var urls = this.getTestUrls(),
 			promise = null;
 		if (urls) {
+			this.setConfig();
 			promise = this.loadTests(urls); 			
 			promise.done($.proxy(this, 'runTests'));
 		} else {
@@ -20,19 +21,35 @@ var Main = {
 		}
 	},
 
-	getTestUrls: function() {
-		var qs = $.trim((window.location.search || '').replace(/^\?+/, ''));
-		if (!qs) {
-			return;
-		}
+	setConfig: function() {
+		base = this.getParam('base');
+		base && require.config({ baseUrl: base });
+	},
 
-		qs = qs.split('&');
-		for (var i = 0, len = qs.length; i < len; i++) {
-			var m = qs[i].split('=', 2);
-			if (m[0] === 'test' && m[1]) {
-				return m[1].split(/,\s*/);	
+	getTestUrls: function() {
+		var url = this.getParam('test');
+		return url ? url.split(/,/) : null;
+	},
+
+	getParam: function(name) {
+		var params = this.params,
+			qs;
+		if (!params) {
+			params = this.params = {};
+
+			qs = $.trim((window.location.search || '').replace(/^\?+/, ''));
+			if (!qs) {
+				return;	
 			}
+			
+			$.each(qs.split('&'), function(index, part) {
+				part = part.split('=', 2);
+				if (part.length === 2) {
+					params[part[0]] = part[1];	
+				}
+			});
 		}
+		return params[name];
 	},
 
 	loadTests: function(urls) {
