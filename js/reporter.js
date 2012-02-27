@@ -1,3 +1,11 @@
+/**
+ * ≤‚ ‘Ω·π˚œ‘ æReporter
+ * @author qijun.weiqj@alibaba-inc.com
+ */
+define(['jquery'], function($) {
+
+var jasmine = {};
+
 jasmine.TrivialReporter = function(doc) {
   this.document = doc || document;
   this.suiteDivs = {};
@@ -193,3 +201,8 @@ jasmine.TrivialReporter.prototype._getSpecUrl = function(spec) {
 	var url = window.location.href.replace(/&?spec=[^&]+/, '');
 	return spec ?  url + (url.indexOf('?') === -1 ? '?' : '&') + 'spec=' + encodeURIComponent(spec.getFullName()) : url;
 };
+
+
+return jasmine.TrivialReporter;
+  
+});

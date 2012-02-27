@@ -2,70 +2,111 @@
  * 测试运行入口 
  * @author qijun.weiqj@alibaba-inc.com
  */
-require(['jquery'], function($) {
+require(['jquery', 'helper', 'reporter'], 
 
-$.noConflict(true);
+		function($, Helper, Reporter) {
 
 var Main = {
 
 	init: function() {
-		var urls = this.getTestUrls(),
+		var url = this.getParam('test'),
 			promise = null;
-		if (urls) {
-			this.setConfig();
-			promise = this.loadTests(urls); 			
-			promise.done($.proxy(this, 'runTests'));
-		} else {
-			alert('请在url中指定testcase/testsuite\n' +
-					'例: test.html?test=http://style.china.alibaba.com/app/winport/main-test/suite.js');
+		if (!url) {
+			return this.showPrompt();
 		}
-	},
 
-	setConfig: function() {
-		base = this.getParam('base');
-		base && require.config({ baseUrl: base });
-	},
-
-	getTestUrls: function() {
-		var url = this.getParam('test');
-		return url ? url.split(/,/) : null;
+		this.proxyTest();
+		Helper.serial([
+			$.proxy(this, 'loadTest', url),
+			$.proxy(this, 'loadImportjs'),
+			$.proxy(this, 'installDescribe'),
+			$.proxy(this, 'runTests')
+		]);
 	},
 
 	getParam: function(name) {
-		var params = this.params,
-			qs;
-		if (!params) {
-			params = this.params = {};
-
-			qs = $.trim((window.location.search || '').replace(/^\?+/, ''));
-			if (!qs) {
-				return;	
-			}
-			
-			$.each(qs.split('&'), function(index, part) {
-				part = part.split('=', 2);
-				if (part.length === 2) {
-					params[part[0]] = part[1];	
-				}
-			});
-		}
+		var params = this.params || 
+				(this.params = Helper.unparam(window.location.search));
 		return params[name];
 	},
 
-	loadTests: function(urls) {
-		var promise = $.when();
+	showPrompt: function() {
+		alert('请在url中指定testcase/testsuite\n' +
+					'例: test.html?base=http://style.china.alibaba.com/app/winport&test=main-test/module/widget/placeholder-test');
+	},
+
+	proxyTest: function() {
+		var self = this;
+		this._describe = describe;
+		window.describe = function() {
+			self._specs.push(arguments);	
+		};
+
+		window.importjs = $.proxy(this, 'importjs');
+	},
+
+	importjs: function(urls) {
+		urls = $.makeArray(urls);
+		this._importjs.push.apply(this._importjs, urls);
+	},
+
+	loadTest: function(url) {
+		url = this.expandUrl(url);
+		return $.ajax(url, { dataType: 'script', cache: true });
+	},
+
+	expandUrl: function(url, stamp) {
+		var base = this.getUrlBase();
+		if (!/\.js$/.test(url)) {
+			url += '.js';
+		}
+		if (!/^https?:\/\//.test(url) && base) {
+			url = Helper.join(base, url);
+		}
+		if (stamp) {
+			url = Helper.url(url, '_=' + $.now());
+		}
+		return url;
+	},
+
+	loadImportjs: function() {
+		var self = this,
+			promise = $.when(),
+			urls = this._importjs.slice();
+		this._importjs = [];
+
 		$.each(urls, function(index, url) {
+			url = self.expandUrl(url);
 			promise = promise.pipe(function() {
-				var d = $.Deferred();	
-				require([url], d.resolve)
-				return d;
-			});
+				var defer = $.Deferred(),
+					ajax = $.ajax(url, { dataType: 'script', cache: true });
+				ajax.done(function() {
+					if (self._importjs.length) {
+						self.loadImportjs().done(defer.resolve);
+					} else {
+						defer.resolve();
+					}
+				});		
+				return defer;
+			});	
 		});
-		return promise.promise();
+		return promise;
+	},
+
+	installDescribe: function() {
+		var self = this;
+		$.each(this._specs, function(index, args) {
+			self._describe.apply(window, args);
+		});
+		return $.when();
+	},
+
+	getUrlBase: function() {
+		return this.getParam('base');
 	},
 
 	runTests: function() {
-		var reporter = new jasmine.TrivialReporter(),
+		var reporter = new Reporter(),
 			env = jasmine.getEnv();
 
 		env.updateInterval = 1000;
@@ -74,11 +115,15 @@ var Main = {
 			return reporter.specFilter(spec);
 		};
 
-		env.execute();
-	}
-	
+		env.execute();	
+	},
+
+	_specs: [],
+	_importjs: []
 };
 
 $($.proxy(Main, 'init'));
 
+
 });
+
