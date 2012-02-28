@@ -17,7 +17,7 @@ var Main = {
 
 		this.proxyTest();
 		Helper.serial([
-			$.proxy(this, 'loadTest', url),
+			$.proxy(this, 'loadJs', url),
 			$.proxy(this, 'loadImportjs'),
 			$.proxy(this, 'installDescribe'),
 			$.proxy(this, 'runTests')
@@ -50,7 +50,7 @@ var Main = {
 		this._importjs.push.apply(this._importjs, urls);
 	},
 
-	loadTest: function(url) {
+	loadJs: function(url) {
 		url = this.expandUrl(url);
 		return $.ajax(url, { dataType: 'script', cache: true });
 	},
@@ -76,11 +76,10 @@ var Main = {
 		this._importjs = [];
 
 		$.each(urls, function(index, url) {
-			url = self.expandUrl(url);
 			promise = promise.pipe(function() {
 				var defer = $.Deferred(),
-					ajax = $.ajax(url, { dataType: 'script', cache: true });
-				ajax.done(function() {
+					p = self.loadJs(url);
+				p.done(function() {
 					if (self._importjs.length) {
 						self.loadImportjs().done(defer.resolve);
 					} else {
@@ -121,6 +120,7 @@ var Main = {
 	_specs: [],
 	_importjs: []
 };
+
 
 $($.proxy(Main, 'init'));
 
